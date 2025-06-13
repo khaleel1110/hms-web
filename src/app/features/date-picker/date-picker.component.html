@@ -1,0 +1,23 @@
+<div class="date-picker-card">
+  <!-- Date & Time Input at top -->
+  <mat-form-field appearance="fill" class="date-input-field">
+    <mat-label>Choose date & time</mat-label>
+    <input
+      matInput
+      [matDatepicker]="picker"
+      [value]="getDateTimeRangeDisplay()"
+      readonly
+      (click)="picker.open()" />
+    <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
+    <mat-datepicker
+      #picker
+      [startAt]="initialDate"
+      (closed)="openTimePicker()">
+    </mat-datepicker>
+  </mat-form-field>
+
+  <!-- Small summary below -->
+  <div *ngIf="selectedDateTimeRange" class="summary">
+    <strong>Selected:</strong> {{ getDateTimeRangeDisplay() }}
+  </div>
+</div>
