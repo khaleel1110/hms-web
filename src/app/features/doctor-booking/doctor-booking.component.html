@@ -1,0 +1,116 @@
+<div class="container">
+  <div class="card card-transition h-100" data-aos="fade-up" data-aos-delay="150">
+    <div class="card-body">
+      <h3 class="card-title text-inherit">Book a Doctor's Appointment</h3>
+      <p class="card-text text-body">Schedule your visit with our medical professionals.</p>
+
+      <form #bookingForm="ngForm" (ngSubmit)="onSubmit()" class="booking-form">
+        <mat-form-field appearance="fill" class="full-width">
+          <mat-label>Full Name</mat-label>
+          <input matInput [(ngModel)]="booking.patientName" name="patientName" required minlength="2" #patientName="ngModel">
+          <mat-error *ngIf="patientName.errors?.['required'] && patientName.touched">
+            Full name is required
+          </mat-error>
+          <mat-error *ngIf="patientName.errors?.['minlength'] && patientName.touched">
+            Name must be at least 2 characters
+          </mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="fill" class="full-width">
+          <mat-label>Email</mat-label>
+          <input matInput [(ngModel)]="booking.email" name="email" required email #email="ngModel">
+          <mat-error *ngIf="email.errors?.['required'] && email.touched">
+            Email is required
+          </mat-error>
+          <mat-error *ngIf="email.errors?.['email'] && email.touched">
+            Please enter a valid email
+          </mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="fill" class="full-width">
+          <mat-label>Phone Number</mat-label>
+          <input matInput [(ngModel)]="booking.phone" name="phone" required pattern="[0-9]{10,}" #phone="ngModel">
+          <mat-error *ngIf="phone.errors?.['required'] && phone.touched">
+            Phone number is required
+          </mat-error>
+          <mat-error *ngIf="phone.errors?.['pattern'] && phone.touched">
+            Please enter a valid phone number (10+ digits)
+          </mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="fill" class="full-width">
+          <mat-label>Doctor</mat-label>
+          <mat-select
+            [(ngModel)]="booking.doctorId"
+            name="doctorId"
+            required
+            #doctorId="ngModel"
+            (selectionChange)="onDoctorChange()"
+          >
+            <mat-option *ngIf="filteredDoctors.length === 0" disabled>No doctors available</mat-option>
+            <mat-option *ngFor="let doctor of filteredDoctors" [value]="doctor.id">
+              {{ doctor.name }} - {{ doctor.specialty }}
+            </mat-option>
+          </mat-select>
+          <mat-error *ngIf="doctorId.errors?.['required'] && doctorId.touched">
+            Please select a doctor
+          </mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="fill" class="full-width">
+          <mat-label>Appointment Type</mat-label>
+          <mat-select [(ngModel)]="booking.appointmentType" name="appointmentType" required #appointmentType="ngModel">
+            <mat-option value="consultation">Consultation</mat-option>
+            <mat-option value="follow-up">Follow-Up</mat-option>
+            <mat-option value="procedure">Procedure</mat-option>
+          </mat-select>
+          <mat-error *ngIf="appointmentType.errors?.['required'] && appointmentType.touched">
+            Please select an appointment type
+          </mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="fill" class="full-width">
+          <mat-label>Choose Date</mat-label>
+          <input
+            matInput
+            [matDatepicker]="picker"
+            [(ngModel)]="selectedDate"
+            name="date"
+            #date="ngModel"
+            required
+            readonly
+            (click)="picker.open()"
+            (dateChange)="onDatePickerChange($event.value)"
+          />
+          <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
+          <mat-datepicker
+            #picker
+            [startAt]="initialDate"
+          ></mat-datepicker>
+          <mat-error *ngIf="date.errors?.['required'] && date.touched">
+            Date is required
+          </mat-error>
+        </mat-form-field>
+
+        <div *ngIf="selectedDateTimeRange" class="summary mt-3">
+          <p><strong>Selected Time:</strong> {{ getDateTimeRangeDisplay() }}</p>
+        </div>
+
+        <div class="error-message mt-2" *ngIf="bookingError">
+          <mat-error>{{ bookingError }}</mat-error>
+        </div>
+
+        <div class="card-footer pt-4">
+          <button
+            mat-raised-button
+            color="primary"
+            type="submit"
+            [disabled]="isLoading || !bookingForm.valid || !selectedDateTimeRange || bookingError"
+          >
+            {{ isLoading ? 'Processing...' : 'Book Appointment' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

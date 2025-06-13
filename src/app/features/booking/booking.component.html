@@ -1,0 +1,110 @@
+<main id="content" role="main">
+  <div class="border-top mx-auto" style="max-width: 25rem;"></div>
+
+  <!-- Department Grid -->
+  <div class="container content-space-2 content-space-lg-3">
+    <!-- Heading -->
+    <div class="w-md-65 mb-5 mb-md-9">
+      <span class="text-cap">Hospital Departments</span>
+      <h2 class="lh-base">Explore our specialized medical departments to book your appointment with the right professionals.</h2>
+    </div>
+    <!-- End Heading -->
+
+    <div class="row">
+      @for (department of departments; track department) {
+        <div class="col-md-4 mb-3 mb-md-0">
+          <!-- Card -->
+          <a [routerLink]="['/doctor-booking', department.id]" routerLinkActive="active" class="card card-transition h-100" [attr.data-aos]="department.aosDelay ? 'fade-up' : null" [attr.data-aos-delay]="department.aosDelay">
+            <img class="card-img-top" [src]="department.imageSrc" alt="{{ department.title }}">
+
+            <div class="card-body">
+              <h3 class="card-title text-inherit">{{ department.title }}</h3>
+              <p class="card-text text-body">{{ department.description }}</p>
+            </div>
+
+            <div class="card-footer pt-0">
+              <span class="card-link">Book Now <i class="bi-chevron-right small ms-1"></i></span>
+            </div>
+          </a>
+          <!-- End Card -->
+        </div>
+      }
+    </div>
+    <!-- End Row -->
+  </div>
+
+  <table
+
+    class="table table-lg table-borderless table-thead-bordered table-nowrap table-align-middle card-table"
+    data-hs-datatables-options='{
+            "columnDefs": [{
+              "targets": [0, 8],
+              "orderable": false
+            }],
+            "order": [],
+            "info": {
+              "totalQty": "#datatableWithPaginationInfoTotalQty"
+            },
+            "search": "#datatableSearch",
+            "entries": "#datatableEntries",
+            "pageLength": 15,
+            "isResponsive": false,
+            "isShowPaging": false,
+            "pagination": "datatablePagination"
+          }'
+  >
+    <thead class="thead-light">
+    <tr>
+      <th class="table-column-pe-0">
+        <div class="form-check">
+          <input
+            class="form-check-input"
+            type="checkbox"
+            value=""
+            id="datatableCheckAll"
+
+          />
+          <label class="form-check-label" for="datatableCheckAll"></label>
+        </div>
+      </th>
+      <th scope="col"><strong class="h4">S/N</strong></th>
+      <th scope="col"><strong class="h4">Patient Name</strong></th>
+      <th scope="col"><strong class="h4">Doctor</strong></th>
+      <th scope="col"><strong class="h4">Email</strong></th>
+      <th scope="col"><strong class="h4">Phone</strong></th>
+      <th scope="col"><strong class="h4">Department</strong></th>
+      <th scope="col"><strong class="h4">Time</strong></th>
+      <th scope="col"><strong class="h4">Edit</strong></th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr *ngFor="let booking of bookings(); let i = index">
+      <td class="table-column-pe-0">
+        <div class="form-check">
+          <input
+            class="form-check-input"
+            type="checkbox"
+            value=""
+
+          />
+          <label class="form-check-label" for="datatableCheckAll{{i}}"></label>
+        </div>
+      </td>
+
+
+      <td>{{ booking.email }}</td>
+
+      <td>
+        <a
+          [routerLink]="['/admin/edit-booking', booking.id]"
+          routerLinkActive="active"
+          class="btn btn-sm btn-outline-primary"
+        >
+          View
+        </a>
+      </td>
+    </tr>
+    </tbody>
+  </table>
+  <!-- End Department Grid -->
+</main>
