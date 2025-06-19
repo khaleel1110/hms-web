@@ -9,9 +9,9 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule, provideNativeDateAdapter } from '@angular/material/core';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { ActivatedRoute } from '@angular/router';
-
+import { firstValueFrom } from 'rxjs';
 import { TimePickerDialogComponent } from '../date-picker/time-picker-dialog/time-picker-dialog.component';
-import {BookingService} from '../../services/booking.service';
+import { BookingService, Patient, Doctor } from '../../services/booking.service';
 
 @Component({
   selector: 'app-doctor-booking',
@@ -32,53 +32,49 @@ import {BookingService} from '../../services/booking.service';
   styleUrls: ['./doctor-booking.component.scss']
 })
 export class DoctorBookingComponent implements OnInit {
-  @Output() bookingSubmitted = new EventEmitter<any>();
+  @Output() bookingSubmitted = new EventEmitter<Patient>();
   @Input() initialDate: Date | null = null;
   @ViewChild('bookingForm') bookingForm!: NgForm;
 
   selectedDate: Date | null = null;
   selectedDateTimeRange: { start: Date; end: Date } | null = null;
   selectedDuration: number = 30;
-  departmentId: string | null = null;
   bookingError: string | null = null;
   isLoading = false;
+  doctors: Doctor[] = [];
+  departmentId: string = '';
 
-  booking = {
-    patientName: '',
+  patient: Patient = {
+    id: '',
+    name: '',
     email: '',
     phone: '',
+    dob: null,
+    departmentId: '',
     doctorId: '',
+    doctorName: '',
     appointmentType: '',
-    startTime: null as Date | null,
-    endTime: null as Date | null,
-    departmentId: ''
+    startTime: null,
+    endTime: null,
+    createdAt: new Date()
   };
-
-  doctors = [
-    { id: '1', name: 'Dr. John Smith', specialty: 'Cardiology', departmentId: 'cardiology' },
-    { id: '2', name: 'Dr. Sarah Johnson', specialty: 'Pediatrics', departmentId: 'pediatrics' },
-    { id: '3', name: 'Dr. Michael Chen', specialty: 'Neurology', departmentId: 'neurology' },
-    { id: '4', name: 'Dr. Emily Davis', specialty: 'Physiotherapy', departmentId: 'physiotherapy' },
-    { id: '5', name: 'Dr. Robert Wilson', specialty: 'Orthopedics', departmentId: 'orthopedics' },
-    { id: '6', name: 'Dr. Linda Brown', specialty: 'Radiology', departmentId: 'radiology' },
-    { id: '7', name: 'Dr. James Lee', specialty: 'Oncology', departmentId: 'oncology' },
-    { id: '8', name: 'Dr. Patricia Taylor', specialty: 'Endocrinology', departmentId: 'endocrinology' }
-  ];
-
-  filteredDoctors: typeof this.doctors = [];
 
   constructor(
     private dialog: MatDialog,
-    private route: ActivatedRoute,
-    private bookingService: BookingService
+    private bookingService: BookingService,
+    private route: ActivatedRoute
   ) {}
 
   ngOnInit(): void {
-    this.departmentId = this.route.snapshot.paramMap.get('id');
-    this.booking.departmentId = this.departmentId || '';
-    this.filteredDoctors = this.departmentId
-      ? this.doctors.filter(doctor => doctor.departmentId === this.departmentId)
-      : this.doctors;
+    this.route.paramMap.subscribe(params => {
+      this.departmentId = params.get('id') || '';
+      this.patient.departmentId = this.departmentId;
+      if (this.departmentId) {
+        this.loadDoctors();
+      } else {
+        this.bookingError = 'No department selected. Please choose a department.';
+      }
+    });
 
     if (this.initialDate) {
       this.selectedDate = this.initialDate;
@@ -86,15 +82,33 @@ export class DoctorBookingComponent implements OnInit {
     }
   }
 
+  private loadDoctors() {
+    this.isLoading = true;
+    this.bookingService.getDoctorsByDepartment(this.departmentId).subscribe({
+      next: (doctors) => {
+        this.doctors = doctors;
+        this.isLoading = false;
+        if (doctors.length === 0) {
+          this.bookingError = 'No doctors available in this department.';
+        } else {
+          this.bookingError = null;
+        }
+      },
+      error: (err) => {
+        console.error('Error fetching doctors:', err);
+        this.isLoading = false;
+        this.bookingError = 'Unable to load doctors. Please try again later or contact support.';
+        this.doctors = [];
+      }
+    });
+  }
+
   setInitialDateTime(date: Date) {
     const endDate = new Date(date);
     endDate.setMinutes(endDate.getMinutes() + this.selectedDuration);
-    this.selectedDateTimeRange = {
-      start: date,
-      end: endDate
-    };
-    this.booking.startTime = date;
-    this.booking.endTime = endDate;
+    this.selectedDateTimeRange = { start: date, end: endDate };
+    this.patient.startTime = date;
+    this.patient.endTime = endDate;
   }
 
   onDatePickerChange(date: Date | null): void {
@@ -104,8 +118,9 @@ export class DoctorBookingComponent implements OnInit {
     } else {
       this.selectedDate = null;
       this.selectedDateTimeRange = null;
-      this.booking.startTime = null;
-      this.booking.endTime = null;
+      this.patient.startTime = null;
+      this.patient.endTime = null;
+      this.bookingError = null;
     }
   }
 
@@ -122,13 +137,16 @@ export class DoctorBookingComponent implements OnInit {
           start: this.combineDateAndTime(result.date, result.timeRange.start),
           end: this.combineDateAndTime(result.date, result.timeRange.end)
         };
-        this.booking.startTime = this.selectedDateTimeRange.start;
-        this.booking.endTime = this.selectedDateTimeRange.end;
-        this.checkAvailability();
+        this.patient.startTime = this.selectedDateTimeRange.start;
+        this.patient.endTime = this.selectedDateTimeRange.end;
+        if (this.patient.doctorId) {
+          this.checkAvailability();
+        }
       } else {
         this.selectedDateTimeRange = null;
-        this.booking.startTime = null;
-        this.booking.endTime = null;
+        this.patient.startTime = null;
+        this.patient.endTime = null;
+        this.bookingError = null;
       }
     });
   }
@@ -150,39 +168,125 @@ export class DoctorBookingComponent implements OnInit {
 
   onDoctorChange() {
     this.bookingError = null;
-    if (this.selectedDateTimeRange) {
+    const selectedDoctor = this.doctors.find(doctor => doctor.id === this.patient.doctorId);
+    this.patient.doctorName = selectedDoctor ? selectedDoctor.name : '';
+    if (this.selectedDateTimeRange && this.patient.doctorId) {
       this.checkAvailability();
     }
   }
 
-  private checkAvailability() {
-    if (this.selectedDateTimeRange && this.booking.doctorId) {
-      this.isLoading = true;
-      this.bookingError = null;
+  private async checkAvailability() {
+    if (!this.selectedDateTimeRange || !this.patient.doctorId) {
+      this.bookingError = 'Please select a doctor and a time slot.';
+      this.isLoading = false;
+      return false;
+    }
 
-      const availabilityData = {
-        doctorId: this.booking.doctorId,
-        startTime: this.selectedDateTimeRange.start,
-        endTime: this.selectedDateTimeRange.end
-      };
+    this.isLoading = true;
+    this.bookingError = null;
 
-      this.bookingService.checkAvailability(availabilityData).subscribe({
-        next: (available) => {
-          this.isLoading = false;
-          if (available) {
-            this.bookingError = null;
-          } else {
-            this.bookingError = 'This time slot is already booked. Please choose another time.';
-          }
-        },
-        error: (error) => {
-          this.isLoading = false;
-          this.bookingError = error.message || 'Failed to check availability. Please try again.';
-        }
-      });
+    const availabilityData = {
+      doctorId: this.patient.doctorId,
+      startTime: this.selectedDateTimeRange.start,
+      endTime: this.selectedDateTimeRange.end
+    };
+
+    try {
+      const available = await firstValueFrom(this.bookingService.checkAvailability(availabilityData));
+      this.isLoading = false;
+      if (!available) {
+        this.bookingError = 'This time slot is already booked. Please choose another time.';
+        return false;
+      }
+      return true;
+    } catch (error) {
+      this.isLoading = false;
+      this.bookingError = (error instanceof Error) ? error.message : 'Failed to check availability. Please try again.';
+      return false;
     }
   }
 
+/*  async onSubmit() {
+    if (!this.bookingForm.valid) {
+      Object.keys(this.bookingForm.controls).forEach(key => {
+        this.bookingForm.controls[key].markAsTouched();
+      });
+      this.bookingError = 'Please fill in all required fields: ' +
+        Object.keys(this.bookingForm.controls)
+          .filter(key => this.bookingForm.controls[key].invalid)
+          .join(', ');
+      return;
+    }
+
+    if (!this.patient.name || !this.patient.email || !this.patient.phone || !this.patient.dob || !this.patient.appointmentType) {
+      this.bookingError = 'Please ensure name, email, phone, date of birth, and appointment type are provided.';
+      return;
+    }
+
+    if (!this.selectedDateTimeRange || !this.patient.doctorId) {
+      this.bookingError = 'Please select a doctor and a valid time slot.';
+      return;
+    }
+
+    this.isLoading = true;
+    this.bookingError = null;
+
+    // Check availability before submitting
+    const isAvailable = await this.checkAvailability();
+    if (!isAvailable) {
+      this.isLoading = false;
+      return;
+    }
+
+    try {
+      const patientData: Omit<Patient, 'id' | 'createdAt'> = {
+        name: this.patient.name,
+        email: this.patient.email,
+        phone: this.patient.phone,
+        dob: this.patient.dob,
+        departmentId: this.patient.departmentId,
+        doctorId: this.patient.doctorId,
+        doctorName: this.patient.doctorName,
+        appointmentType: this.patient.appointmentType,
+        startTime: this.patient.startTime,
+        endTime: this.patient.endTime
+      };
+
+      const response = await firstValueFrom(this.bookingService.addPatient(patientData));
+
+      this.isLoading = false;
+      this.bookingSubmitted.emit(response);
+      alert('Appointment booked successfully! A confirmation email has been sent.');
+      this.resetForm();
+    } catch (error) {
+      this.isLoading = false;
+      this.bookingError = 'Failed to book appointment: ' + ((error instanceof Error) ? error.message : 'Please try again.');
+    }
+  }*/
+
+  private resetForm() {
+    this.patient = {
+      id: '',
+      name: '',
+      email: '',
+      phone: '',
+      dob: null,
+      departmentId: this.departmentId,
+      doctorId: '',
+      doctorName: '',
+      appointmentType: '',
+      startTime: null,
+      endTime: null,
+      createdAt: new Date()
+    };
+    this.selectedDate = null;
+    this.selectedDateTimeRange = null;
+    this.bookingError = null;
+    if (this.bookingForm) {
+      this.bookingForm.resetForm();
+    }
+  }
+/*
   onSubmit() {
     if (!this.bookingForm.valid) {
       Object.keys(this.bookingForm.controls).forEach(key => {
@@ -192,21 +296,21 @@ export class DoctorBookingComponent implements OnInit {
       return;
     }
 
-    if (!this.selectedDateTimeRange || !this.booking.doctorId || this.bookingError) {
+    if (!this.selectedDateTimeRange || !this.patient.doctorId || this.bookingError) {
       alert('Please select a valid date, time, and doctor.');
       return;
     }
 
     this.isLoading = true;
-    const selectedDoctor = this.doctors.find(doctor => doctor.id === this.booking.doctorId);
+    const selectedDoctor = this.doctors.find(doctor => doctor.id === this.patient.doctorId);
     const bookingData = {
-      patientName: this.booking.patientName,
-      email: this.booking.email,
-      phone: this.booking.phone,
+      patientName: this.patient.name,
+      email: this.patient.email,
+      phone: this.patient.phone,
       departmentName: this.departmentId || 'Unknown Department',
-      doctorId: this.booking.doctorId,
+      doctorId: this.patient.doctorId,
       doctorName: selectedDoctor ? selectedDoctor.name : 'Unknown Doctor',
-      appointmentType: this.booking.appointmentType,
+      appointmentType: this.patient.appointmentType,
       appointmentDate: this.selectedDateTimeRange.start.toISOString().split('T')[0],
       startTime: this.selectedDateTimeRange.start,
       endTime: this.selectedDateTimeRange.end,
@@ -216,9 +320,8 @@ export class DoctorBookingComponent implements OnInit {
     this.bookingService.submitBooking(bookingData).subscribe({
       next: (response) => {
         this.isLoading = false;
-        this.bookingSubmitted.emit(bookingData);
-        alert('Appointment booked successfully! A confirmation email has been sent.');
-        this.resetForm();
+        alert('Appointment booked successfully! A confirmation has been sent to your email.');
+        this.bookingForm.reset(); // Optional: Reset form after successful booking
       },
       error: (error) => {
         this.isLoading = false;
@@ -226,21 +329,64 @@ export class DoctorBookingComponent implements OnInit {
       }
     });
   }
+*/
 
-  private resetForm() {
-    this.booking = {
-      patientName: '',
-      email: '',
-      phone: '',
-      doctorId: '',
-      appointmentType: '',
-      startTime: null,
-      endTime: null,
-      departmentId: this.departmentId || ''
-    };
-    this.selectedDate = null;
-    this.selectedDateTimeRange = null;
+  async onSubmit() {
+    if (!this.bookingForm.valid) {
+      Object.keys(this.bookingForm.controls).forEach(key => {
+        this.bookingForm.controls[key].markAsTouched();
+      });
+      alert('Please fix the form errors before submitting.');
+      return;
+    }
+
+    if (!this.selectedDateTimeRange || !this.patient.doctorId || this.bookingError) {
+      alert('Please select a valid date, time, and doctor.');
+      return;
+    }
+
+    this.isLoading = true;
     this.bookingError = null;
-    this.bookingForm.resetForm();
+
+    const selectedDoctor = this.doctors.find(d => d.id === this.patient.doctorId);
+    this.patient.doctorName = selectedDoctor ? selectedDoctor.name : 'Unknown Doctor';
+    this.patient.startTime = this.selectedDateTimeRange.start;
+    this.patient.endTime = this.selectedDateTimeRange.end;
+
+    const isAvailable = await this.checkAvailability();
+    if (!isAvailable) {
+      this.isLoading = false;
+      return;
+    }
+
+    try {
+      const patientData: Omit<Patient, 'id' | 'createdAt'> = {
+        name: this.patient.name,
+        email: this.patient.email,
+        phone: this.patient.phone,
+        dob: this.patient.dob,
+        departmentId: this.patient.departmentId,
+        doctorId: this.patient.doctorId,
+        doctorName: this.patient.doctorName,
+        appointmentType: this.patient.appointmentType,
+        startTime: this.patient.startTime,
+        endTime: this.patient.endTime
+      };
+
+      const response = await firstValueFrom(this.bookingService.addPatient(patientData));
+
+      this.isLoading = false;
+      alert('Appointment booked successfully! A confirmation email has been sent.');
+      this.bookingSubmitted.emit(response);
+      this.resetForm();
+    } catch (error) {
+      this.isLoading = false;
+      const errorMsg = (error instanceof Error) ? error.message : 'Please try again.';
+      this.bookingError = 'Failed to book appointment: ' + errorMsg;
+      alert(this.bookingError);
+    }
   }
+
+
+
 }

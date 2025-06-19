@@ -12,4 +12,6 @@ export const environment = {
     measurementId: "G-M8D39X7ECJ"
   },
   emailAddress: 'hello@rumfastudio.com.ng',
+  placeholderImageBase: 'https://via.placeholder.com'
+
 };

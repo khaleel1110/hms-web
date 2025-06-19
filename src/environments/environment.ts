@@ -1,7 +1,6 @@
 export const environment = {
   useEmulator: false,
-  apiUrl: 'http://localhost:3000' ,
-
+  apiUrl: 'http://localhost:3000',
   firebaseApp: {
     apiKey: "AIzaSyANoKPj7Np84YGjd_2r54CrLB12cPsNDpM",
     authDomain: "hospital-management-fdb22.firebaseapp.com",
@@ -12,4 +11,5 @@ export const environment = {
     measurementId: "G-M8D39X7ECJ"
   },
   emailAddress: 'hello@rumfastudio.com.ng',
+  placeholderImageBase: 'https://via.placeholder.com'
 };

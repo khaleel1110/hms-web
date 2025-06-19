@@ -1,25 +1,24 @@
 import { ApplicationConfig, provideZoneChangeDetection } from '@angular/core';
-import { provideRouter } from '@angular/router';
-import {provideFirebaseApp, initializeApp, getApp} from '@angular/fire/app';
+import { provideRouter, withComponentInputBinding } from '@angular/router';
 import { routes } from './app.routes';
-import {provideHttpClient} from '@angular/common/http';
-import {provideNativeDateAdapter} from '@angular/material/core';
-import {connectAuthEmulator, getAuth, provideAuth} from '@angular/fire/auth';
-
-import {connectFunctionsEmulator, getFunctions, provideFunctions} from '@angular/fire/functions';
-import {getStorage, provideStorage} from '@angular/fire/storage';
-import {environment} from '../environments/environment';
+import {provideFirebaseApp, initializeApp, getApp} from '@angular/fire/app';
+import { provideAuth, getAuth, connectAuthEmulator } from '@angular/fire/auth';
+import { provideFunctions, getFunctions, connectFunctionsEmulator } from '@angular/fire/functions';
+import {provideStorage, getStorage, connectStorageEmulator} from '@angular/fire/storage';
 import { provideFirestore, getFirestore, initializeFirestore, persistentLocalCache,
   persistentMultipleTabManager, connectFirestoreEmulator } from '@angular/fire/firestore';
+import { environment } from '../environments/environment'; // Ensure path is correct
+import { provideHttpClient } from '@angular/common/http';
+import {provideNativeDateAdapter} from '@angular/material/core';
+import {ENVIRONMENT} from '../../environment.token';
+
 export const appConfig: ApplicationConfig = {
   providers: [
     provideNativeDateAdapter(),
-    provideRouter(routes),
-    provideHttpClient(),
     provideNativeDateAdapter(), // Added to fix DateAdapter error
     provideZoneChangeDetection({ eventCoalescing: true }),
-    provideRouter(routes),
-
+    provideRouter(routes, withComponentInputBinding()),
+    provideHttpClient(),
     // Firebase App Initialization
     provideFirebaseApp(() => initializeApp(environment.firebaseApp)), // Use environment.firebase, not firebaseApp
 
@@ -55,7 +54,13 @@ export const appConfig: ApplicationConfig = {
     }),
 
     // Storage
-    provideStorage(() => getStorage()),
-
+    provideStorage(() => {
+      const storage = getStorage();
+      if (environment.useEmulator) {
+        connectStorageEmulator(storage, 'localhost', 9199);
+      }
+      return storage;
+    }),
+    { provide: ENVIRONMENT, useValue: environment }
   ]
 };
